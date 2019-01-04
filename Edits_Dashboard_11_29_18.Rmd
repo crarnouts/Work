@@ -1,0 +1,168 @@
+---
+title: "Disbursement Unneccessary Edits Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    social: []
+    source_code: embed
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(knitr)
+library(DT)
+library(rpivotTable)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(openintro)
+library(highcharter)
+library(ggvis)
+```
+
+
+```{r}
+
+data_2 <- read.csv("O:/Business Process Engineering/BPEAs/Automated SAS Projects/Automated Report Data/Edits Dashboard Data/WORK_ASSOCIATE_LOOPING_DATA.csv",header =TRUE)
+
+data_4<- read.csv("O:/Business Process Engineering/BPEAs/Automated SAS Projects/Automated Report Data/Edits Dashboard Data/WORK_ADVANCED_DISBURSEMENTS_METRICS.csv",header =TRUE)
+
+data_4$Processing_Time <- data_4$ELAPSED_TIME_NB_Sum/60
+data_4$Edit_Count <- data_4$Frequency.Count
+data_4$Frequency.Count <- NULL
+data_4$ELAPSED_TIME_NB_Mean <- NULL
+data_4$ELAPSED_TIME_NB_Sum <- NULL
+
+#data_6 <- filter(data_4, data_4$Processing_Time <180)
+
+# data_6 <- filter(data_4, data_4$THROUGHPUT_TIME.hours. < 12)
+# data_5 <- filter(data_4, data_4$ELAPSED_TIME_NB_Sum < 3600)
+data_4$EVENT_COUNT<- NULL
+# data_4$ELAPSED_TIME_NB_Mean <- NULL
+# data_4$ELAPSED_TIME_NB_Sum <-NULL
+# names(data_4)<- c("TXN_ID","DATE","TIME","TIMESTAMP","TXN_TYPE","EDIT_COUNT","THROUGHPUT_TIME.hours.","Processing_Time_min")
+
+```
+
+```{r}
+mycolors <- c("blue", "#FFC125", "darkgreen", "darkorange")
+```
+
+Interactive Data Visualization
+=====================================
+
+Row
+-------------------------------
+
+### Total Unneccessary Edits for the week, these are edits that were not cleared after the user took action on the piece of work and therefore the piece of work could not move on to the next skill
+```{r}
+valueBox(NROW(data_2))
+```
+
+Row
+-------------------------------
+
+### Count by Manager
+
+```{r}
+p1 <- data_2 %>%
+         group_by(SUPERVISOR_NAME) %>%
+         summarise(count = n()) %>%
+         plot_ly(x = ~SUPERVISOR_NAME,
+                 y = ~count,
+                 color = "blue",
+                 type = 'bar') %>%
+layout(xaxis = list(title = "COUNT BY MANAGER"),
+yaxis = list(title = 'Count'))
+p1
+```
+
+### Top Transaction Type Counts
+
+```{r}
+p2 <- data_2 %>%
+         group_by(Transaction.Type) %>%
+         summarise(count = n()) %>%
+         filter(count>50) %>%
+         plot_ly(labels = ~Transaction.Type,
+                 values = ~count,
+                 marker = list(colors = mycolors)) %>%
+         add_pie(hole = 0.2) %>%
+         layout(xaxis = list(zeroline = F,
+                             showline = F,
+                             showticklabels = F,
+                             showgrid = F),
+                yaxis = list(zeroline = F,
+                             showline = F,
+                             showticklabels=F,
+                             showgrid=F))
+p2
+```
+
+### Edit Counts over Time
+
+```{r}
+
+
+p3 <- data_2 %>%
+         group_by(Date) %>%
+         summarise(count = n()) %>%
+         plot_ly(x = ~Date,
+                 y = ~count,
+                 color = "red",
+                 type = 'bar') %>%
+layout(xaxis = list(title = "COUNT BY Date"),
+yaxis = list(title = 'Count'))
+p3
+```
+
+Row
+------------------------------------
+### Scatter Plot of Associate Counts
+
+```{r}
+
+p1 <- data_2 %>%
+         group_by(Associate_Name) %>%
+         summarise(count = n()) %>%
+         plot_ly(x = ~Associate_Name,
+                 y = ~count,
+                 color = "yellow",
+                 type = 'bar') %>%
+layout(xaxis = list(title = "COUNT BY ASSOCIATE"),
+yaxis = list(title = 'Count'))
+p1
+```
+
+
+
+
+Pivot Table
+=========================================
+
+```{r}
+
+data_pivot <- data_2[c(1,2,3,4,5,6,7,8,9,10,13,14)]
+rpivotTable(data_pivot,
+            aggregatorName = "Count",
+            cols= "Associate_Name",
+            rows = "Supervisor_NAME",
+            rendererName = "Heatmap")
+```
+
+
+
+Advanced Disbursements Pivot Table
+=========================================
+
+```{r}
+
+
+rpivotTable(data_4,
+            aggregatorName = "Average",
+            rows = "TXN_TYPE",
+            rendererName = "Heatmap")
+```
+
+

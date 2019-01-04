@@ -1,0 +1,106 @@
+---
+title: "RM_DASHBOARD - 6 months of data"
+author: "Corey Arnouts"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    vertical_layout: fill
+    social: []
+    source_code: embed
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(knitr)
+library(DT)
+library(rpivotTable)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(openintro)
+library(highcharter)
+library(ggvis)
+```
+
+
+```{r}
+
+rm_data <- read.csv("O:/Business Process Engineering/BPEAs/Process Statistics/WORK_RM_COMPLETE_DATASET.csv",header =TRUE)
+#rm_data <- rm_data[c(1,2,5,28)]
+
+# data_2 <- read.csv("U:/WORK_ASSOCIATE_LOOPING_DATA.csv",header =TRUE)
+# data_4<- read.csv("U:/WORK_ADVANCED_DISBURSEMENTS_METRICS.csv",header =TRUE)
+# 
+# data_4$Processing_Time <- data_4$ELAPSED_TIME_NB_Sum/60
+# data_6 <- filter(data_4, data_4$THROUGHPUT_TIME.hours. < 12)
+# data_5 <- filter(data_4, data_4$ELAPSED_TIME_NB_Sum < 3600)
+# data_4$EVENT_COUNT<- NULL
+# data_4$ELAPSED_TIME_NB_Mean <- NULL
+# data_4$ELAPSED_TIME_NB_Sum <-NULL
+# names(data_4)<- c("TXN_ID","DATE","TIME","TIMESTAMP","TXN_TYPE","EDIT_COUNT","THROUGHPUT_TIME.hours.","Processing_Time_min")
+
+```
+
+```{r}
+mycolors <- c("blue", "#FFC125", "darkgreen", "cyan4")
+```
+
+Interactive Data Visualization
+=====================================
+
+Column
+-------------------------------
+
+### Top Transaction Type Counts
+
+```{r}
+p2 <- rm_data %>%
+         group_by(Transaction.Type) %>%
+         summarise(count = n()) %>%
+         filter(count>50) %>%
+         plot_ly(labels = ~Transaction.Type,
+                 values = ~count,
+                 marker = list(colors = mycolors)) %>%
+         add_pie(hole = 0.2) %>%
+         layout(xaxis = list(zeroline = F,
+                             showline = F,
+                             showticklabels = F,
+                             showgrid = F),
+                yaxis = list(zeroline = F,
+                             showline = F,
+                             showticklabels=F,
+                             showgrid=F))
+p2
+```
+
+
+
+
+Column
+------------------------------------
+### Count By WEEK
+
+```{r}
+
+p3 <- rm_data %>%
+         group_by(WEEK) %>%
+         summarise(count = n()) %>%
+         plot_ly(x = ~WEEK,
+                 y = ~count,
+                 color = "red",
+                 type = 'bar') %>%
+layout(xaxis = list(title = "COUNT BY WEEK"),
+yaxis = list(title = 'Count'))
+p3
+```
+
+
+RM Pivot Table
+=========================================
+
+```{r}
+
+rpivotTable(rm_data,
+            rendererName = "Heatmap")
+```
+

@@ -1,0 +1,263 @@
+---
+title: "Disbursement Unneccessary Edits Dashboard"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: rows
+    vertical_layout: fill
+    social: []
+    source_code: embed
+---
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(knitr)
+library(DT)
+library(rpivotTable)
+library(ggplot2)
+library(plotly)
+library(dplyr)
+library(openintro)
+library(highcharter)
+library(ggvis)
+library(plyr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+library(rpart)				        # Popular decision tree algorithm
+library(rattle)					# Fancy tree plot
+library(rpart.plot)				# Enhanced tree plots
+library(RColorBrewer)				# Color selection for fancy tree plot
+library(party)					# Alternative decision tree algorithm
+library(partykit)				# Convert rpart object to BinaryTree
+library(caret)
+```
+
+
+```{r}
+
+data_2 <- read.csv("U:/WORK_ASSOCIATE_LOOPING_DATA.csv",header =TRUE)
+
+data_4<- read.csv("U:/WORK_ADVANCED_DISBURSEMENTS_METRICS.csv",header =TRUE)
+```
+
+```{r}
+mycolors <- c("blue", "#FFC125", "darkgreen", "darkorange")
+```
+
+Interactive Data Visualization
+=====================================
+
+Row
+-------------------------------
+
+### Count by Manager
+
+```{r}
+p1 <- data_2 %>%
+         group_by(SUPERVISOR_NAME) %>%
+         summarise(count = n()) %>%
+         plot_ly(x = ~SUPERVISOR_NAME,
+                 y = ~count,
+                 color = "blue",
+                 type = 'bar') %>%
+layout(xaxis = list(title = "COUNT BY MANAGER"),
+yaxis = list(title = 'Count'))
+p1
+```
+
+### Top Transaction Type Counts
+
+```{r}
+p2 <- data_2 %>%
+         group_by(Transaction.Type) %>%
+         summarise(count = n()) %>%
+         filter(count>50) %>%
+         plot_ly(labels = ~Transaction.Type,
+                 values = ~count,
+                 marker = list(colors = mycolors)) %>%
+         add_pie(hole = 0.2) %>%
+         layout(xaxis = list(zeroline = F,
+                             showline = F,
+                             showticklabels = F,
+                             showgrid = F),
+                yaxis = list(zeroline = F,
+                             showline = F,
+                             showticklabels=F,
+                             showgrid=F))
+p2
+```
+
+### Edit Counts over Time
+
+```{r}
+
+
+p3 <- data_2 %>%
+         group_by(Date) %>%
+         summarise(count = n()) %>%
+         plot_ly(x = ~Date,
+                 y = ~count,
+                 color = "red",
+                 type = 'bar') %>%
+layout(xaxis = list(title = "COUNT BY Date"),
+yaxis = list(title = 'Count'))
+p3
+```
+
+Row
+------------------------------------
+### Scatter Plot of Associate Counts
+
+```{r}
+#data_2 <-order(data_2,data_2$SUPERVISOR_NAME)
+p1 <- data_2 %>%
+         group_by(NAME) %>%
+         summarise(count = n()) %>%
+         plot_ly(x = ~NAME,
+                 y = ~count,
+                 color = "yellow",
+                 type = 'bar') %>%
+layout(xaxis = list(title = "COUNT BY ASSOCIATE"),
+yaxis = list(title = 'Count'))
+p1
+```
+
+
+
+
+Pivot Table
+=========================================
+
+```{r}
+#data_2$Date_num <- as.numeric(data_2$Date)
+
+rpivotTable(data_2,
+            aggregatorName = "Count",
+            cols= "name",
+            rows = "SUPERVISOR_NAME",
+            rendererName = "Heatmap")
+```
+
+
+
+
+Advanced Disbursement Metrics
+=====================================
+
+Row
+-------------------------------
+
+### TXN Processing Time
+
+
+```{r}
+data_4$Processing_Time <- data_4$ELAPSED_TIME_NB_Sum/60
+data_5 <- filter(data_4, data_4$ELAPSED_TIME_NB_Sum < 3600)
+p <- plot_ly(data_5, x =~TXN_TYPE ,y = ~Processing_Time, type = "box")
+p
+```
+
+
+### Throughput Time by TXN
+```{r}
+
+data_6 <- filter(data_4, data_4$THROUGHPUT_TIME.hours. < 12)
+p <- plot_ly(data_6, x =~TXN_TYPE ,y = ~data_6$THROUGHPUT_TIME.hours., type = "box")
+p
+```
+
+Row
+------------------------------------
+
+### Processing Time Compared to Total Touches
+```{r}
+
+fit <- lm(Frequency.Count ~ Processing_Time, data = data_6)
+
+data_6 %>% 
+  plot_ly(x = ~Processing_Time) %>% 
+  add_markers(y = ~Frequency.Count) %>% 
+  add_lines(x = ~Processing_Time, y = fitted(fit))
+```
+
+Row
+------------------------------------
+
+### Relationship between Touches and Processing Time
+```{r}
+valueBox(cor(data_6$Processing_Time,data_6$Frequency.Count),
+         icon = "fa-area-chart")
+```
+
+Advanced Disbursement Metrics
+=====================================
+
+Row
+-------------------------------
+
+### Decision Trees
+```{r}
+
+data <- read.csv("C:/Temp/R/waiting_time_resources.csv",header =TRUE)
+
+#correlation between arrival time and end time
+cor(data$arrival.time, data$end.time)
+
+data$arrival.time<- data$arrival.time/3600  #turn arrival time into hours
+data$end.time<- data$end.time/3600  #turn arrival time into hours
+
+# Looking at correlations between arrival time and end time
+# data_1 <- filter(data,data$arrival.time< 9)
+# cor(data_1$arrival.time,data_1$end.time)
+# 
+# data_2 <- filter(data,data$arrival.time< 12)
+# cor(data_2$arrival.time,data_2$end.time)
+
+
+#Select the columns that I want
+data <- data[c(2,4,5,17,10,11,18,19,20)]
+
+
+#subset the data into all of the relevant transactions
+data_queues <- data[c(2,3,4,5,6)]
+data_pw<-subset(data, TXN_TYPE == 'pos_adv_annuity_partial_withdrawal')
+data_adv_sw <-subset(data, TXN_TYPE == 'pos_adv_payout_system_withdrawal')
+#should combine the advanced transfers and outgoing transfers possibly or maybe just look at advanced
+data_ot <-subset(data, TXN_TYPE == 'pos_annuity_outgoing_transfers')
+data_adv_ot<-subset(data, TXN_TYPE == 'pos_adv_annuity_outgoing_transfers')
+data_claims<-subset(data, TXN_TYPE == 'claims_annuity')
+data_rmd<-subset(data, TXN_TYPE == 'pos_adv_one_time_rmd')
+data_sw<-subset(data, TXN_TYPE == 'pos_payout_system_withdrawal')
+
+
+
+#get rid of the TXN_TYPE for the decision trees themselves
+data<-data[c(3,4,5,6,7,8,9)]
+data_adv_sw <-data_adv_sw[c(2,3,4,5,6,7,8,9)]
+data_ot<-data_ot[c(2,3,4,5,6,7,8,9)]
+data_adv_ot<-data_adv_ot[c(2,3,4,5,6,7,8,9)]
+data_claims<-data_claims[c(2,3,4,5,6,7,8,9)]
+data_rmd<-data_rmd[c(2,3,4,5,6,7,8,9)]
+data_sw<-data_sw[c(2,3,4,5,6,7,8,9)]
+
+
+unique(data$TXN_TYPE)
+#data$start.time<- data$start.time/3600
+#data$event.time <- data$event.time/3600
+#data$end.time <- data$end.time/3600
+
+
+##Decision Trees
+
+#Decision Tree of Everything
+form <- as.formula(waiting.mins ~ .)
+
+tree.2 <- rpart(form,data)			# A more reasonable tree
+prp(tree.2)  
+new.tree <-prp(tree.2,snip=TRUE)$obj
+# A fast plot													
+fancyRpartPlot(new.tree)
+text(tree.data, pretty=0)
+title("Disbursements Overview Tree")
+```
+

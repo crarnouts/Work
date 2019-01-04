@@ -1,0 +1,72 @@
+---
+title: "Umphlett's Decision Tree"
+author: "Corey Arnouts"
+date: "October 12, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+##jPod initial Touch Waiting Time Decision Tree Analysis
+
+This script utilizes data created by the process that creates the jpod E2E dashboard. The Rmd file for that script can be accessed in the OA Wiki. It starts by reading in a csv that is built in that process which contains transactions that meet these criteria:
+•Transaction Types that can be critical depending on attributes (though it does not mean every transaction counted for this report was critical)
+•Completed on the same day they are received to Jackson
+•Arrive to jPod between 6 am and 6 pm
+•Only received on weekdays
+•Of these transactions, we then will only count transactions where the first manual skill processed is worked by a user who is in Auto Assign.
+
+The purpose of this analysis is to provide automated decision trees that can be updated automatically and/or on-demand in order to show the characteristics of transactions that lead to higher first pickup waiting times. This can give the business units a starting point for considering headcount-neutral strategies for reducing end-to-end times as well as visibility to how current strategies may unintentionally be leading to longer end-to-end times.
+
+
+```{r}
+library(rpart)
+library(tidyverse)
+library(lubridate)
+library(stringr)
+library(rpart.plot)
+library(purrr)
+#setwd("S:\\TSR_CSR\\Operations Analytics\\Chris Umphlett\\2017 Incomplete & Ad hoc\\end to end processing times\\JPOD\\DECISION TREE")
+waiting.time<-read_csv("C:/Temp/R/waiting_time_data_2.csv") %>% mutate(Tier=case_when(
+  tier == "D Producer - No Sales" ~ "GenPop",
+  tier == "Pre-Star"  ~ "GenPop",
+  tier == "Producer"  ~ "GenPop",
+  tier == "Premier II"  ~ "Star",
+  tier == "Premier I"  ~ "SuperStar",
+  TRUE ~ as.character(tier)
+  ),Skill=gsub("POS ","",DESCRIPTION_X),Skill=gsub("OPS ","",DESCRIPTION_X)
+  )
+
+```
+
+##Build Trees
+In this chunk the tree models are created using rpart::rpart() and then visualized with rpart.plot::prp() and written out to a pdf with one page for each transaction type tree.
+
+```{r}
+#get list of transaction types to pass to purrr:map() function
+ttlst<-as.list(unique(waiting.time$TXN_TYPE))
+
+#special argument for prp(). will replace commas in factor split labels with line breaks
+split.fun <- function(x, labs, digits, varlen, faclen)
+{
+  labs <- gsub(",", "\n", labs)
+  labs
+}
+
+#function that filters data, builds tree and plots. will be called by purrr:map()
+buildtree<-function(.x) {
+  treedat<-waiting.time %>% filter(TXN_TYPE==.x)
+  tree<-rpart(waiting.mins ~ Tier + Skill + lob + arrival.bucket + DOW,data=treedat,minsplit=60,cp=0.005)
+  prp(tree,
+      box.palette="GnRd",type=5,branch=1,pal.thresh=60,fallen.leaves = TRUE,varlen=0,extra=1,faclen=17,split.cex=.8,cex=.8,space=0.5,
+      prefix="Wait\ntime:\n",ygap=1,Margin=0.01,split.fun=split.fun,tweak=0.8,main=.x)
+}
+
+#use purrr:map() to create the trees and write the plots to a pdf
+pdf("trees.pdf",height=7, width=10)
+map(.x=ttlst,.f=~buildtree(.x))
+dev.off()
+```
+
